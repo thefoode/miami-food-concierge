@@ -3,10 +3,10 @@ import time
 import logging
 
 from flask import Flask, request
-from twilio.twiml.messaging_response import MessagingResponse
 
 from restaurant_data import get_restaurant_data
 from ai import get_ai_reply
+from meta_whatsapp import send_message, extract_incoming_message
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,30 +38,47 @@ def health():
     return {"status": "ok"}, 200
 
 
-@app.route("/whatsapp", methods=["POST"])
+@app.route("/webhook", methods=["GET"])
+def verify_webhook():
+    verify_token = os.environ.get("WHATSAPP_VERIFY_TOKEN")
+    mode = request.args.get("hub.mode")
+    token = request.args.get("hub.verify_token")
+    challenge = request.args.get("hub.challenge", "")
+
+    if mode == "subscribe" and token == verify_token:
+        return challenge, 200
+    return "Forbidden", 403
+
+
+@app.route("/webhook", methods=["POST"])
 def whatsapp_reply():
-    incoming_body = request.form.get("Body", "").strip()
-    from_number = request.form.get("From", "unknown")  # e.g. "whatsapp:+15551234567"
+    payload = request.get_json(silent=True) or {}
+    from_number, incoming_body = extract_incoming_message(payload)
+
+    if not from_number:
+        # Delivery/status updates, or payloads with nothing to reply to.
+        return "", 200
 
     logger.info("Incoming WhatsApp message from %s: %s", from_number, incoming_body)
 
-    resp = MessagingResponse()
-
     if not incoming_body:
-        resp.message('Text me a craving (like "best pizza in wynwood") and I\'ll hook you up with a spot!')
-        return str(resp), 200, {"Content-Type": "text/xml"}
+        reply_text = 'Text me a craving (like "best pizza in wynwood") and I\'ll hook you up with a spot!'
+    else:
+        try:
+            restaurant_data = get_restaurant_data()
+            history = get_history(from_number)
+            reply_text, updated_history = get_ai_reply(incoming_body, history, restaurant_data)
+            save_history(from_number, updated_history)
+        except Exception:
+            logger.exception("Failed to generate AI reply")
+            reply_text = "Sorry, having a hiccup on my end, try again in a sec!"
 
     try:
-        restaurant_data = get_restaurant_data()
-        history = get_history(from_number)
-        reply_text, updated_history = get_ai_reply(incoming_body, history, restaurant_data)
-        save_history(from_number, updated_history)
+        send_message(from_number, reply_text)
     except Exception:
-        logger.exception("Failed to generate AI reply")
-        reply_text = "Sorry, having a hiccup on my end, try again in a sec!"
+        logger.exception("Failed to send WhatsApp reply")
 
-    resp.message(reply_text)
-    return str(resp), 200, {"Content-Type": "text/xml"}
+    return "", 200
 
 
 if __name__ == "__main__":

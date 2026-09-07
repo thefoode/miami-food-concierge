@@ -2,7 +2,9 @@
 
 Followers message a WhatsApp number, an AI answers using your actual favorite restaurants (pulled live from a Google Sheet you maintain).
 
-How it works: Twilio receives the WhatsApp message -> forwards it to this app's `/whatsapp` webhook -> the app reads your Google Sheet + the conversation so far -> asks Claude to reply in your voice, grounded only in your list -> sends the reply back over WhatsApp.
+How it works: Meta's WhatsApp Cloud API receives the message -> forwards it to this app's `/webhook` -> the app reads your Google Sheet + the conversation so far -> asks Claude to reply in your voice, grounded only in your list -> the app calls Meta's API directly to send the reply back.
+
+This talks to Meta directly (no Twilio or other middleman), so there's no monthly number fee and no markup on top of Meta's own rates - just Anthropic's usage cost, which is a few cents per conversation.
 
 ## 1. Set up your restaurant list (Google Sheet)
 
@@ -18,23 +20,28 @@ Whenever you edit the sheet, the bot picks up changes within 5 minutes automatic
 
 Sign up / log in at https://console.anthropic.com, create an API key, and save it - that's your `ANTHROPIC_API_KEY`.
 
-## 3. Set up Twilio for WhatsApp
+## 3. Set up Meta's WhatsApp Cloud API (free to test, no payment info required)
 
-Twilio gives you two ways to send/receive WhatsApp messages: a free **Sandbox** (instant, great for testing) and a **production WhatsApp Sender** (requires Meta approval, needed before you can share this with real followers).
+1. Go to https://developers.facebook.com and sign up / log in with a Facebook account.
+2. Click **My Apps > Create App**. Choose type **Business**, give it a name (e.g. "Miami Food Concierge").
+3. In your new app's dashboard, find **WhatsApp** in the product list and click **Set up**.
+4. This takes you to the WhatsApp > API Setup page. Here you'll see:
+   - A **temporary access token** (valid ~24 hours - fine for testing, we'll set up a permanent one before going live)
+   - A **test phone number** already provided by Meta, with its **Phone Number ID**
+5. Copy the access token - that's `WHATSAPP_ACCESS_TOKEN`. Copy the Phone Number ID - that's `WHATSAPP_PHONE_NUMBER_ID`.
+6. Under "To", add your own personal WhatsApp number as a test recipient (click **Manage phone number list**, add it, verify with the code Meta sends you). You can add up to 5 test numbers this way with zero cost and no business verification.
+7. Pick any random string yourself (e.g. a long password) - that's `WHATSAPP_VERIFY_TOKEN`. You'll enter this same value in two places: Meta's webhook config (step 6 below) and Railway's env vars.
 
-### Start with the Sandbox (free, works immediately)
+You won't finish the webhook config until the app is deployed (step 5) - come back to this.
 
-1. Sign up at https://www.twilio.com/try-twilio.
-2. In the Twilio Console, go to **Messaging > Try it out > Send a WhatsApp message**. You'll get a shared Twilio sandbox number and a join code (like "join happy-tiger").
-3. From your own phone, send that join code via WhatsApp to the sandbox number to link your account to it. Anyone you want to test with also needs to send that same join code once.
-4. You won't set the webhook until after the app is deployed (step 5) - come back to this.
+### Going to production later (when you're ready to launch to followers)
 
-### Go to production when you're ready to launch to followers
+The temporary token expires every 24 hours, and the test number can only message the 5 numbers you added. To go live:
+1. Complete **Meta Business verification** for your app (Meta walks you through this in the App Dashboard).
+2. Generate a **permanent access token** via a System User in Meta Business Settings (instead of the 24-hour temporary one).
+3. Optionally request a dedicated WhatsApp number instead of the shared test number, and set your display name/profile.
 
-1. In the Console, go to **Messaging > Senders > WhatsApp senders** and start the WhatsApp Sender request. This walks you through creating/connecting a Meta Business Account and WhatsApp Business Profile (name, logo, description).
-2. Twilio submits this to Meta for approval - typically takes a few days.
-3. Once approved, you get your own dedicated WhatsApp number (no join-code step for your followers - they just message it directly, or tap a `wa.me/1XXXXXXXXXX` link you share).
-4. Repeat step 6 below with this production number's webhook instead of the sandbox's.
+I can walk you through this step by step whenever you're ready to launch publicly.
 
 ## 4. Run it locally to test (optional but recommended)
 
@@ -44,45 +51,32 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# edit .env and fill in ANTHROPIC_API_KEY, SHEET_CSV_URL, CREATOR_NAME
+# edit .env and fill in all the values from steps 1-3
 python app.py
 ```
-
-In another terminal, simulate an incoming WhatsApp message:
-
-```bash
-curl -X POST http://localhost:5000/whatsapp -d "Body=best pizza in wynwood" -d "From=whatsapp:+15551234567"
-```
-
-You should get back TwiML XML containing the AI's reply.
 
 ## 5. Deploy to Railway
 
 1. Sign up at https://railway.app (can use GitHub login).
 2. New Project > Deploy from GitHub repo (push this folder to a GitHub repo first), or use the Railway CLI to deploy the folder directly.
-3. In Railway's project settings, add environment variables: `ANTHROPIC_API_KEY`, `SHEET_CSV_URL`, `CREATOR_NAME`.
+3. In Railway's project settings, add environment variables: `ANTHROPIC_API_KEY`, `SHEET_CSV_URL`, `CREATOR_NAME`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`.
 4. Railway auto-detects the `Procfile` and runs `gunicorn app:app`.
 5. Once deployed, Railway gives you a public URL like `https://your-app.up.railway.app`.
 
-## 6. Connect Twilio to your deployed app
+## 6. Connect Meta's webhook to your deployed app
 
-**For the sandbox (testing):**
-1. Console > Messaging > Try it out > Send a WhatsApp message > **Sandbox settings**.
-2. Under "When a message comes in", set the webhook to:
-   `https://your-app.up.railway.app/whatsapp`
-   Method: `HTTP POST`.
-3. Save.
+1. Back in the Meta App Dashboard, go to **WhatsApp > Configuration**.
+2. Under **Webhook**, click **Edit** and enter:
+   - Callback URL: `https://your-app.up.railway.app/webhook`
+   - Verify token: the same `WHATSAPP_VERIFY_TOKEN` value you put in Railway
+3. Click **Verify and save** - Meta will hit your `/webhook` GET endpoint to confirm it matches, and the app should respond automatically.
+4. Under **Webhook fields**, click **Manage** and subscribe to **messages**.
 
-**For production (once your WhatsApp Sender is approved):**
-1. Console > Messaging > Senders > WhatsApp senders > your sender > **Configuration**.
-2. Set the same webhook URL there.
-3. Save.
-
-Message the number on WhatsApp and you should get a reply within a few seconds.
+Message the test number from one of your verified test phones on WhatsApp and you should get a reply within a few seconds.
 
 ## Notes / next steps
 
 - Conversation memory is in-process and resets if the app restarts, or after an hour of silence per follower - fine for an MVP, easy to swap for a database later if you want persistence across restarts.
 - `CREATOR_NAME` is used in the AI's system prompt so it can refer to whose recommendations these are.
-- If you want to restrict who can message the bot (e.g. only approved followers), Twilio's console lets you see all inbound numbers - ask and I can add an allowlist/blocklist later.
-- Costs to expect: WhatsApp Sender number is free from Twilio; Meta charges per-message only for business-initiated messages outside a 24-hour reply window - since this bot only ever replies to inbound messages, that's a free "service conversation" for the first 1,000/month and cheap after. Anthropic API usage is a few cents per conversation. Railway free tier covers light usage.
+- Costs to expect: Meta doesn't charge for the API itself or a monthly number fee. You only pay per message once you exceed Meta's free service-conversation tier (1,000/month) - and since this bot only ever replies to inbound messages, most of your traffic likely stays free. Anthropic API usage is a few cents per conversation. Railway free tier covers light usage.
+- The temporary access token from step 3 expires after ~24 hours during testing - if the bot suddenly stops replying, generate a new temporary token from the API Setup page and update it in Railway, or set up the permanent System User token described above.

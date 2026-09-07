@@ -77,6 +77,14 @@ def whatsapp_reply():
 
     if not from_number:
         # Delivery/status updates, or payloads with nothing to reply to.
+        statuses = (
+            payload.get("entry", [{}])[0]
+            .get("changes", [{}])[0]
+            .get("value", {})
+            .get("statuses")
+        )
+        if statuses:
+            logger.info("Message status update: %s", statuses)
         return "", 200
 
     logger.info("Incoming WhatsApp message from %s: %s", from_number, incoming_body)

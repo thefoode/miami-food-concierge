@@ -34,14 +34,15 @@ Sign up / log in at https://console.anthropic.com, create an API key, and save i
 
 You won't finish the webhook config until the app is deployed (step 5) - come back to this.
 
-### Going to production later (when you're ready to launch to followers)
+### Going to production (done)
 
-The temporary token expires every 24 hours, and the test number can only message the 5 numbers you added. To go live:
-1. Complete **Meta Business verification** for your app (Meta walks you through this in the App Dashboard).
-2. Generate a **permanent access token** via a System User in Meta Business Settings (instead of the 24-hour temporary one).
-3. Optionally request a dedicated WhatsApp number instead of the shared test number, and set your display name/profile.
+This app now runs in full production mode rather than on the shared test number:
+1. **Business verification** completed for the Meta Business Portfolio (Business Verification: Verified).
+2. A **permanent access token** was generated via a System User in Meta Business Settings (Business Settings > Users > System Users > generate token, expiration "Never", scoped to `whatsapp_business_management` + `whatsapp_business_messaging`). This doesn't expire like the 24-hour temporary token does.
+3. A **dedicated phone number** was registered (not the shared test number) - a Google Voice number set up specifically for this bot. Registering it required: creating a WhatsApp Business Profile (display name, category, description), verifying the number via SMS code, and setting a 6-digit PIN (kept privately, needed only if the number is ever re-registered).
+4. The System User was assigned access to this new WhatsApp Business Account (Business Settings > WhatsApp accounts > select account > Assign people > System User > enable "Messages" permission), and the app was subscribed to the account's webhook events via the Graph API (`POST /{WABA_ID}/subscribed_apps`).
 
-I can walk you through this step by step whenever you're ready to launch publicly.
+One thing that looks like a bug but isn't: a **brand new number has no open conversation window** with anyone until they text it first. WhatsApp only allows free-form replies within 24 hours of the customer's last message (error 131047 "Re-engagement message" otherwise) - this is why the bot won't respond to a first-time number until that person has actually sent it a message for real.
 
 ## 4. Run it locally to test (optional but recommended)
 
@@ -72,11 +73,19 @@ python app.py
 3. Click **Verify and save** - Meta will hit your `/webhook` GET endpoint to confirm it matches, and the app should respond automatically.
 4. Under **Webhook fields**, click **Manage** and subscribe to **messages**.
 
-Message the test number from one of your verified test phones on WhatsApp and you should get a reply within a few seconds.
+Message the number from WhatsApp and you should get a reply within a few seconds.
+
+## Current production status
+
+- **Number:** +1 (305) 570-1131, display name "The Food-E" - fully registered, no tester/recipient limit (that restriction only applied to Meta's free shared test number, which this app no longer uses).
+- **App:** published (not in Development mode).
+- **Business:** verified (THEFOODE LLC).
+- **Token:** permanent System User token, does not expire.
+- Anyone can message the number and get a reply - no need to add them as a tester first.
 
 ## Notes / next steps
 
 - Conversation memory is in-process and resets if the app restarts, or after an hour of silence per follower - fine for an MVP, easy to swap for a database later if you want persistence across restarts.
 - `CREATOR_NAME` is used in the AI's system prompt so it can refer to whose recommendations these are.
 - Costs to expect: Meta doesn't charge for the API itself or a monthly number fee. You only pay per message once you exceed Meta's free service-conversation tier (1,000/month) - and since this bot only ever replies to inbound messages, most of your traffic likely stays free. Anthropic API usage is a few cents per conversation. Railway free tier covers light usage.
-- The temporary access token from step 3 expires after ~24 hours during testing - if the bot suddenly stops replying, generate a new temporary token from the API Setup page and update it in Railway, or set up the permanent System User token described above.
+- Still running on `sample-recommendations.csv`-style placeholder data until a real Google Sheet is published and `SHEET_CSV_URL` is updated in Railway.

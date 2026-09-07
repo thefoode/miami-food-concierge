@@ -1,6 +1,6 @@
-# Miami Food Concierge (WhatsApp bot)
+# thefoode hotline (WhatsApp bot)
 
-Followers message a WhatsApp number, an AI answers using your actual favorite restaurants (pulled live from a Google Sheet you maintain).
+Followers message a WhatsApp number, an AI answers using your actual favorite restaurants (pulled live from a Google Sheet you maintain). Public-facing name: **thefoode hotline**.
 
 How it works: Meta's WhatsApp Cloud API receives the message -> forwards it to this app's `/webhook` -> the app reads your Google Sheet + the conversation so far -> asks Claude to reply in your voice, grounded only in your list -> the app calls Meta's API directly to send the reply back.
 
@@ -77,7 +77,7 @@ Message the number from WhatsApp and you should get a reply within a few seconds
 
 ## Current production status
 
-- **Number:** +1 (305) 570-1131, display name "The Food-E" - fully registered, no tester/recipient limit (that restriction only applied to Meta's free shared test number, which this app no longer uses).
+- **Number:** +1 (305) 570-1131, display name "thefoode hotline" - fully registered, no tester/recipient limit (that restriction only applied to Meta's free shared test number, which this app no longer uses).
 - **App:** published (not in Development mode).
 - **Business:** verified (THEFOODE LLC).
 - **Token:** permanent System User token, does not expire.

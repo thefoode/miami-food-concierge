@@ -38,6 +38,26 @@ def health():
     return {"status": "ok"}, 200
 
 
+@app.route("/privacy", methods=["GET"])
+def privacy_policy():
+    creator_name = os.environ.get("CREATOR_NAME", "the creator")
+    html = f"""<!DOCTYPE html>
+<html><head><title>Privacy Policy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{{font-family:sans-serif;max-width:640px;margin:40px auto;padding:0 16px;line-height:1.5;color:#222}}</style>
+</head><body>
+<h1>Privacy Policy</h1>
+<p>This WhatsApp bot lets followers of {creator_name} text in for restaurant recommendations.</p>
+<h2>What we collect</h2>
+<p>When you message this number, we receive your phone number and the text of your message. This is used only to generate a reply and is temporarily cached in memory to keep track of your conversation (cleared after about an hour of inactivity, or when the server restarts). We do not sell, share, or use this data for advertising.</p>
+<h2>Third parties</h2>
+<p>Message text is sent to Anthropic (our AI provider) to generate replies, and to Meta/WhatsApp to deliver them. No other third parties receive your data.</p>
+<h2>Contact</h2>
+<p>Questions about this policy can be sent directly to {creator_name} via WhatsApp.</p>
+</body></html>"""
+    return html, 200, {"Content-Type": "text/html"}
+
+
 @app.route("/webhook", methods=["GET"])
 def verify_webhook():
     verify_token = os.environ.get("WHATSAPP_VERIFY_TOKEN")

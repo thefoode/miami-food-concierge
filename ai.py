@@ -16,8 +16,21 @@ def _format_restaurant_data(rows):
     return "\n".join(lines)
 
 
-def build_system_prompt(restaurant_data):
+def _format_faq_data(rows):
+    lines = []
+    for row in rows:
+        question = row.get("Question", "").strip()
+        answer = row.get("Answer", "").strip()
+        if question and answer:
+            lines.append(f"Q: {question}\nA: {answer}")
+    return "\n\n".join(lines)
+
+
+def build_system_prompt(restaurant_data, faq_data=None):
     data_text = _format_restaurant_data(restaurant_data)
+    faq_text = _format_faq_data(faq_data or [])
+    faq_section = f"\n\nCommon questions and how to answer them:\n{faq_text}\n" if faq_text else ""
+
     return f"""You are a texting concierge bot for {CREATOR_NAME}, a Miami food content creator. Followers text you asking for restaurant recommendations. Answer ONLY using the recommendations list below - these are the creator's actual favorite spots. Never invent restaurants that aren't in the list.
 
 Style rules:
@@ -27,14 +40,15 @@ Style rules:
 - If nothing in the list matches what they're asking for, say so honestly and suggest the closest thing you do have, or ask a clarifying question (e.g. neighborhood, budget).
 - Don't use markdown formatting - this is a plain text message.
 - Do not mention that you are an AI, a bot, or that you're reading from a list or spreadsheet.
+- If a follower asks something covered in the common questions list below, use that as your answer (in your own words, still short and casual) rather than guessing.
 
 Creator's Miami recommendations (each line is one spot):
-{data_text}
+{data_text}{faq_section}
 """
 
 
-def get_ai_reply(user_message, history, restaurant_data):
-    system_prompt = build_system_prompt(restaurant_data)
+def get_ai_reply(user_message, history, restaurant_data, faq_data=None):
+    system_prompt = build_system_prompt(restaurant_data, faq_data)
     messages = history + [{"role": "user", "content": user_message}]
 
     response = client.messages.create(

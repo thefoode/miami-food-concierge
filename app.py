@@ -5,6 +5,7 @@ import logging
 from flask import Flask, request
 
 from restaurant_data import get_restaurant_data
+from faq_data import get_faq_data
 from ai import get_ai_reply
 from meta_whatsapp import send_message, extract_incoming_message
 
@@ -94,8 +95,9 @@ def whatsapp_reply():
     else:
         try:
             restaurant_data = get_restaurant_data()
+            faq_data = get_faq_data()
             history = get_history(from_number)
-            reply_text, updated_history = get_ai_reply(incoming_body, history, restaurant_data)
+            reply_text, updated_history = get_ai_reply(incoming_body, history, restaurant_data, faq_data)
             save_history(from_number, updated_history)
         except Exception:
             logger.exception("Failed to generate AI reply")

@@ -16,6 +16,17 @@ This talks to Meta directly (no Twilio or other middleman), so there's no monthl
 
 Whenever you edit the sheet, the bot picks up changes within 5 minutes automatically - no redeploy needed.
 
+### Optional: a FAQ tab for common questions
+
+If people ask things that aren't really about a specific restaurant ("do you take reservations for me?", "do these places do delivery?"), add a **second tab** to the same Google Sheet just for that:
+
+1. In your sheet, add a new tab (bottom left, the `+` next to your existing tab).
+2. Use two columns: `Question, Answer` (see `sample-faq.csv` in this folder for the format).
+3. Publish that tab the same way as the restaurant list (**File > Share > Publish to web**, select this specific tab, format CSV) - it gets its own separate published URL.
+4. That URL is your `FAQ_CSV_URL`.
+
+This is entirely optional - if you don't set `FAQ_CSV_URL`, the bot just skips it and works as before.
+
 ## 2. Get an Anthropic API key
 
 Sign up / log in at https://console.anthropic.com, create an API key, and save it - that's your `ANTHROPIC_API_KEY`.
@@ -60,7 +71,7 @@ python app.py
 
 1. Sign up at https://railway.app (can use GitHub login).
 2. New Project > Deploy from GitHub repo (push this folder to a GitHub repo first), or use the Railway CLI to deploy the folder directly.
-3. In Railway's project settings, add environment variables: `ANTHROPIC_API_KEY`, `SHEET_CSV_URL`, `CREATOR_NAME`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`.
+3. In Railway's project settings, add environment variables: `ANTHROPIC_API_KEY`, `SHEET_CSV_URL`, `CREATOR_NAME`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, and optionally `FAQ_CSV_URL`.
 4. Railway auto-detects the `Procfile` and runs `gunicorn app:app`.
 5. Once deployed, Railway gives you a public URL like `https://your-app.up.railway.app`.
 

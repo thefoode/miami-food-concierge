@@ -38,12 +38,12 @@ def health():
     return {"status": "ok"}, 200
 
 
-@app.route("/sms", methods=["POST"])
-def sms_reply():
+@app.route("/whatsapp", methods=["POST"])
+def whatsapp_reply():
     incoming_body = request.form.get("Body", "").strip()
-    from_number = request.form.get("From", "unknown")
+    from_number = request.form.get("From", "unknown")  # e.g. "whatsapp:+15551234567"
 
-    logger.info("Incoming SMS from %s: %s", from_number, incoming_body)
+    logger.info("Incoming WhatsApp message from %s: %s", from_number, incoming_body)
 
     resp = MessagingResponse()
 

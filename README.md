@@ -1,8 +1,8 @@
-# Miami Food Concierge (SMS bot)
+# Miami Food Concierge (WhatsApp bot)
 
-Followers text a phone number, an AI answers using your actual favorite restaurants (pulled live from a Google Sheet you maintain).
+Followers message a WhatsApp number, an AI answers using your actual favorite restaurants (pulled live from a Google Sheet you maintain).
 
-How it works: Twilio receives the text -> forwards it to this app's `/sms` webhook -> the app reads your Google Sheet + the conversation so far -> asks Claude to reply in your voice, grounded only in your list -> texts the reply back.
+How it works: Twilio receives the WhatsApp message -> forwards it to this app's `/whatsapp` webhook -> the app reads your Google Sheet + the conversation so far -> asks Claude to reply in your voice, grounded only in your list -> sends the reply back over WhatsApp.
 
 ## 1. Set up your restaurant list (Google Sheet)
 
@@ -18,11 +18,23 @@ Whenever you edit the sheet, the bot picks up changes within 5 minutes automatic
 
 Sign up / log in at https://console.anthropic.com, create an API key, and save it - that's your `ANTHROPIC_API_KEY`.
 
-## 3. Set up Twilio (the phone number)
+## 3. Set up Twilio for WhatsApp
+
+Twilio gives you two ways to send/receive WhatsApp messages: a free **Sandbox** (instant, great for testing) and a **production WhatsApp Sender** (requires Meta approval, needed before you can share this with real followers).
+
+### Start with the Sandbox (free, works immediately)
 
 1. Sign up at https://www.twilio.com/try-twilio.
-2. Buy a phone number with SMS capability (Phone Numbers > Buy a Number).
-3. You won't set the webhook until after the app is deployed (step 5) - come back to this.
+2. In the Twilio Console, go to **Messaging > Try it out > Send a WhatsApp message**. You'll get a shared Twilio sandbox number and a join code (like "join happy-tiger").
+3. From your own phone, send that join code via WhatsApp to the sandbox number to link your account to it. Anyone you want to test with also needs to send that same join code once.
+4. You won't set the webhook until after the app is deployed (step 5) - come back to this.
+
+### Go to production when you're ready to launch to followers
+
+1. In the Console, go to **Messaging > Senders > WhatsApp senders** and start the WhatsApp Sender request. This walks you through creating/connecting a Meta Business Account and WhatsApp Business Profile (name, logo, description).
+2. Twilio submits this to Meta for approval - typically takes a few days.
+3. Once approved, you get your own dedicated WhatsApp number (no join-code step for your followers - they just message it directly, or tap a `wa.me/1XXXXXXXXXX` link you share).
+4. Repeat step 6 below with this production number's webhook instead of the sandbox's.
 
 ## 4. Run it locally to test (optional but recommended)
 
@@ -36,10 +48,10 @@ cp .env.example .env
 python app.py
 ```
 
-In another terminal, simulate an incoming text:
+In another terminal, simulate an incoming WhatsApp message:
 
 ```bash
-curl -X POST http://localhost:5000/sms -d "Body=best pizza in wynwood" -d "From=+15551234567"
+curl -X POST http://localhost:5000/whatsapp -d "Body=best pizza in wynwood" -d "From=whatsapp:+15551234567"
 ```
 
 You should get back TwiML XML containing the AI's reply.
@@ -54,17 +66,23 @@ You should get back TwiML XML containing the AI's reply.
 
 ## 6. Connect Twilio to your deployed app
 
-1. In Twilio Console > Phone Numbers > your number > **Messaging** section.
-2. Under "A message comes in", set the webhook to:
-   `https://your-app.up.railway.app/sms`
+**For the sandbox (testing):**
+1. Console > Messaging > Try it out > Send a WhatsApp message > **Sandbox settings**.
+2. Under "When a message comes in", set the webhook to:
+   `https://your-app.up.railway.app/whatsapp`
    Method: `HTTP POST`.
 3. Save.
 
-Text your Twilio number and you should get a reply within a few seconds.
+**For production (once your WhatsApp Sender is approved):**
+1. Console > Messaging > Senders > WhatsApp senders > your sender > **Configuration**.
+2. Set the same webhook URL there.
+3. Save.
+
+Message the number on WhatsApp and you should get a reply within a few seconds.
 
 ## Notes / next steps
 
-- Conversation memory is in-process and resets if the app restarts, or after an hour of silence per phone number - fine for an MVP, easy to swap for a database later if you want persistence across restarts.
+- Conversation memory is in-process and resets if the app restarts, or after an hour of silence per follower - fine for an MVP, easy to swap for a database later if you want persistence across restarts.
 - `CREATOR_NAME` is used in the AI's system prompt so it can refer to whose recommendations these are.
-- If you want to restrict who can text the bot (e.g. only approved followers), Twilio's console lets you see all inbound numbers - ask and I can add an allowlist/blocklist later.
-- Costs to expect: Twilio number ~$1/mo + ~$0.0079 per text (US), Anthropic API usage is a few cents per conversation, Railway free tier covers light usage.
+- If you want to restrict who can message the bot (e.g. only approved followers), Twilio's console lets you see all inbound numbers - ask and I can add an allowlist/blocklist later.
+- Costs to expect: WhatsApp Sender number is free from Twilio; Meta charges per-message only for business-initiated messages outside a 24-hour reply window - since this bot only ever replies to inbound messages, that's a free "service conversation" for the first 1,000/month and cheap after. Anthropic API usage is a few cents per conversation. Railway free tier covers light usage.

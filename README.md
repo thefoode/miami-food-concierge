@@ -27,6 +27,37 @@ If people ask things that aren't really about a specific restaurant ("do you tak
 
 This is entirely optional - if you don't set `FAQ_CSV_URL`, the bot just skips it and works as before.
 
+### Optional: see who's texting in and what they ask
+
+By default, conversations aren't saved anywhere you can browse - you'd have to dig through Railway's logs. To get a running log in your Google Sheet instead:
+
+1. In your same Google Sheet, add a new tab named exactly `Conversations` (leave it empty - the script fills in headers automatically).
+2. Go to **Extensions > Apps Script**.
+3. Delete whatever's in the editor and paste this:
+
+   ```javascript
+   function doPost(e) {
+     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Conversations");
+     if (!sheet) {
+       sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Conversations");
+     }
+     if (sheet.getLastRow() === 0) {
+       sheet.appendRow(["Timestamp", "Phone", "Message", "Reply"]);
+     }
+     var data = JSON.parse(e.postData.contents);
+     sheet.appendRow([new Date(), data.phone || "", data.message || "", data.reply || ""]);
+     return ContentService.createTextOutput(JSON.stringify({ status: "ok" }))
+       .setMimeType(ContentService.MimeType.JSON);
+   }
+   ```
+
+4. Click **Deploy > New deployment**. Choose type **Web app**.
+5. Set "Execute as" to **Me**, and "Who has access" to **Anyone**.
+6. Click **Deploy**, authorize when prompted (it'll warn you it's unverified - that's expected for a script only you use, click Advanced > Go to [project] to proceed).
+7. Copy the Web app URL it gives you (ends in `/exec`) - that's your `LOG_WEBHOOK_URL`.
+
+Once set, every text in and reply gets its own row in the `Conversations` tab - timestamp, their phone number, what they asked, what the bot said back. This is entirely optional too - skip it and the bot just won't log anywhere besides Railway's raw logs.
+
 ## 2. Get an Anthropic API key
 
 Sign up / log in at https://console.anthropic.com, create an API key, and save it - that's your `ANTHROPIC_API_KEY`.

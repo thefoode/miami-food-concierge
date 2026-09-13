@@ -8,6 +8,7 @@ from restaurant_data import get_restaurant_data
 from faq_data import get_faq_data
 from ai import get_ai_reply
 from meta_whatsapp import send_message, extract_incoming_message
+from conversation_log import log_conversation
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -107,6 +108,8 @@ def whatsapp_reply():
         send_message(from_number, reply_text)
     except Exception:
         logger.exception("Failed to send WhatsApp reply")
+
+    log_conversation(from_number, incoming_body, reply_text)
 
     return "", 200
 
